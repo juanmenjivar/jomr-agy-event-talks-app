@@ -17,6 +17,7 @@ const refreshIcon = document.getElementById('refresh-icon');
 const cacheTimeSpan = document.getElementById('cache-time');
 const themeToggleBtn = document.getElementById('theme-toggle');
 const resetFiltersBtn = document.getElementById('reset-filters-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 
 // Stats Counters
 const statTotal = document.getElementById('stat-total');
@@ -229,6 +230,9 @@ function renderReleases() {
                     </span>
                 </div>
                 <div class="card-actions-right">
+                    <button class="btn-copy-action" onclick="copyToClipboard('${release.id}', this)" title="Copy plain text to clipboard">
+                        <i class="fa-regular fa-copy"></i> Copy
+                    </button>
                     <button class="btn-tweet-action" onclick="openTweetComposer('${release.id}')">
                         <i class="fa-brands fa-x-twitter"></i> Tweet
                     </button>
@@ -309,6 +313,10 @@ resetFiltersBtn.addEventListener('click', () => {
 
 refreshBtn.addEventListener('click', () => {
     fetchReleases(true);
+});
+
+exportCsvBtn.addEventListener('click', () => {
+    exportToCSV();
 });
 
 // ----------------------------------------------------
@@ -440,6 +448,107 @@ document.addEventListener('keydown', (e) => {
         closeTweetModal();
     }
 });
+
+// ----------------------------------------------------
+// Clipboard & Export Utilities
+// ----------------------------------------------------
+window.copyToClipboard = function(id, btn) {
+    const release = allReleases.find(r => r.id === id);
+    if (!release) return;
+    
+    // Construct plaintext format
+    const copyText = `BigQuery ${release.type.toUpperCase()} - ${release.date}:\n${release.text}\n\nRead more: ${release.link}`;
+    
+    navigator.clipboard.writeText(copyText).then(() => {
+        // Morph button for user feedback
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-check" style="color: #10b981;"></i> Copied!`;
+        btn.style.borderColor = '#10b981';
+        btn.style.color = '#10b981';
+        btn.disabled = true;
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+            btn.disabled = false;
+        }, 2000);
+    }).catch(err => {
+        console.error("Clipboard API failed, trying fallback:", err);
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = copyText;
+        textarea.style.position = "fixed";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand("copy");
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check" style="color: #10b981;"></i> Copied!`;
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+            }, 2000);
+        } catch (e) {
+            alert("Failed to copy text.");
+        }
+        document.body.removeChild(textarea);
+    });
+};
+
+window.exportToCSV = function() {
+    // Collect filtered releases
+    const filtered = allReleases.filter(release => {
+        const matchesPill = currentFilter === 'all' || 
+            (currentFilter === 'Issue' && ['issue', 'bug fix', 'bugfix'].includes(release.type.toLowerCase())) ||
+            release.type.toLowerCase() === currentFilter.toLowerCase();
+            
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery || 
+            release.date.toLowerCase().includes(searchLower) ||
+            release.type.toLowerCase().includes(searchLower) ||
+            release.text.toLowerCase().includes(searchLower);
+            
+        return matchesPill && matchesSearch;
+    });
+
+    if (filtered.length === 0) {
+        alert("No releases found to export with the current filters.");
+        return;
+    }
+
+    const headers = ["ID", "Date", "Timestamp", "Type", "Description", "Documentation Link"];
+    const csvRows = [
+        headers.join(','),
+        ...filtered.map(release => {
+            const row = [
+                release.id,
+                release.date,
+                release.timestamp,
+                release.type,
+                release.text.replace(/"/g, '""'),
+                release.link
+            ];
+            return row.map(val => `"${val}"`).join(',');
+        })
+    ];
+
+    const csvString = "\uFEFF" + csvRows.join("\r\n"); // Add BOM for Excel UTF-8
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        
+        const filterName = currentFilter.toLowerCase().replace(/\s+/g, '_');
+        const timestampStr = new Date().toISOString().slice(0, 10);
+        link.setAttribute("download", `bigquery_releases_${filterName}_${timestampStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+};
 
 // ----------------------------------------------------
 // Page Initialization

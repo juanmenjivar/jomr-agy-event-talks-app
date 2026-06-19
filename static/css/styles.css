@@ -609,6 +609,32 @@ body.light-theme .glow-sphere {
     transform: scale(0.98);
 }
 
+.btn-copy-action {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+}
+
+.btn-copy-action:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+    transform: scale(1.03);
+}
+
+.btn-copy-action:active {
+    transform: scale(0.98);
+}
+
 /* Release Card Content Styling */
 .card-content {
     font-size: 0.95rem;
